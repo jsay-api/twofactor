@@ -485,7 +485,7 @@ func (otp *Totp) ToBytes() (string, error) {
 // it stores the state of the TOTP object, like the key, the current counter, the client offset,
 // the total amount of verification failures and the last time a verification happened
 // removed encryption so gets string, decodes it to bytes
-func TOTPFromBytes(encryptedMessage string, issuer string) (*Totp, error) {
+func TOTPDecrypt(encryptedMessage string, issuer string) (*Totp, error) {
 
 	// init the cryptoengine
 	// engine, err := cryptoengine.InitCryptoEngine(issuer)
