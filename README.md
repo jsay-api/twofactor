@@ -9,7 +9,13 @@ This package implements the RFC 6238 OATH-TOTP algorithm;
 
 ### Installation
 
-```go get github.com/sec51/twofactor```
+```go get github.com/jsay-api/twofactor```
+
+### Fork updates
+
+It's a fork from original project github.com/sec51/twofactor/. 
+
+In this project the encryption of *twofactor.Totp was removed.
 
 ### Features
 
@@ -38,7 +44,11 @@ This package implements the RFC 6238 OATH-TOTP algorithm;
 > In addition when the QR code is shared with the client for scanning, the connection used must be secured (HTTPS).
 
 The `totp` struct can be easily serialized using the `ToBytes()` function. 
-The bytes can then be stored on a persistent layer (database for example). The bytes are encrypted using `cryptoengine` library (NaCl)
+The bytes can then be stored on a persistent layer (database for example). The bytes are NOT encrypted anymore. 
+UPDATE: The encryption was removed as it generates local files with keys which cannot be pushed to remote.
+Another problem is that keys files are regenerated every single time docker container is restarted.
+So encryption was removed. The object containing Secret, etc. is serialized to bytes and encrypted to string to 
+store in the persistent layer.
 You can then retrieve the object back with the function: `TOTPFromBytes`
 
 > You can transfer the bytes securely via a network connection (Ex. if the database is in a different server) because they are encrypted and authenticated.
