@@ -21,7 +21,6 @@ import (
 
 	"github.com/sec51/convert"
 	"github.com/sec51/convert/bigendian"
-	"github.com/sec51/cryptoengine"
 	qr "github.com/sec51/qrcode"
 )
 
@@ -343,11 +342,11 @@ func (otp *Totp) QR() ([]byte, error) {
 // The data is encrypted using the cryptoengine library (which is a wrapper around the golang NaCl library)
 // TODO:
 // 1- improve sizes. For instance the hashFunction_type could be a short.
-func (otp *Totp) ToBytes() ([]byte, error) {
+func (otp *Totp) ToBytes() (string, error) {
 
 	// check Totp initialization
 	if err := totpHasBeenInitialized(otp); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	var buffer bytes.Buffer
@@ -370,67 +369,67 @@ func (otp *Totp) ToBytes() ([]byte, error) {
 	// at this point we are ready to write the data to the byte buffer
 	// total size
 	if _, err := buffer.Write(totalSizeBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// key
 	if _, err := buffer.Write(keySizeBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 	if _, err := buffer.Write(otp.key); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// counter
 	counterBytes := bigendian.ToUint64(otp.getIntCounter())
 	if _, err := buffer.Write(counterBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// digits
 	digitBytes := bigendian.ToInt(otp.digits)
 	if _, err := buffer.Write(digitBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// issuer
 	if _, err := buffer.Write(issuerSizeBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 	if _, err := buffer.WriteString(otp.issuer); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// account
 	if _, err := buffer.Write(accountSizeBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 	if _, err := buffer.WriteString(otp.account); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// steps
 	stepsBytes := bigendian.ToInt(otp.stepSize)
 	if _, err := buffer.Write(stepsBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// offset
 	offsetBytes := bigendian.ToInt(otp.clientOffset)
 	if _, err := buffer.Write(offsetBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// total_failures
 	totalFailuresBytes := bigendian.ToInt(otp.totalVerificationFailures)
 	if _, err := buffer.Write(totalFailuresBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// last verification time
 	verificationTimeBytes := bigendian.ToUint64(uint64(otp.lastVerificationTime.Unix()))
 	if _, err := buffer.Write(verificationTimeBytes[:]); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// has_function_type
@@ -438,63 +437,75 @@ func (otp *Totp) ToBytes() ([]byte, error) {
 	case crypto.SHA256:
 		sha256Bytes := bigendian.ToInt(1)
 		if _, err := buffer.Write(sha256Bytes[:]); err != nil {
-			return nil, err
+			return "", err
 		}
 		break
 	case crypto.SHA512:
 		sha512Bytes := bigendian.ToInt(2)
 		if _, err := buffer.Write(sha512Bytes[:]); err != nil {
-			return nil, err
+			return "", err
 		}
 		break
 	default:
 		sha1Bytes := bigendian.ToInt(0)
 		if _, err := buffer.Write(sha1Bytes[:]); err != nil {
-			return nil, err
+			return "", err
 		}
 	}
+	
+	// removed encryption because it generates local files
+	// just converting bytes to string and store it in DB this way
+	// // encrypt the TOTP bytes
+	// engine, err := cryptoengine.InitCryptoEngine(otp.issuer)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// encrypt the TOTP bytes
-	engine, err := cryptoengine.InitCryptoEngine(otp.issuer)
-	if err != nil {
-		return nil, err
-	}
+	// // init the message to be encrypted
+	// message, err := cryptoengine.NewMessage(buffer.String(), message_type)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// init the message to be encrypted
-	message, err := cryptoengine.NewMessage(buffer.String(), message_type)
-	if err != nil {
-		return nil, err
-	}
+	// // encrypt it
+	// encryptedMessage, err := engine.NewEncryptedMessage(message)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// encrypt it
-	encryptedMessage, err := engine.NewEncryptedMessage(message)
-	if err != nil {
-		return nil, err
-	}
+	//reading bytes from buffer and returning string
+	secretBytes := buffer.Bytes()
+	secretString := hex.EncodeToString(secretBytes)
 
-	return encryptedMessage.ToBytes()
+	return secretString, nil
 
 }
 
 // TOTPFromBytes converts a byte array to a totp object
 // it stores the state of the TOTP object, like the key, the current counter, the client offset,
 // the total amount of verification failures and the last time a verification happened
-func TOTPFromBytes(encryptedMessage []byte, issuer string) (*Totp, error) {
+// removed encryption so gets string, decodes it to bytes
+func TOTPFromBytes(encryptedMessage string, issuer string) (*Totp, error) {
 
 	// init the cryptoengine
-	engine, err := cryptoengine.InitCryptoEngine(issuer)
-	if err != nil {
-		return nil, err
-	}
+	// engine, err := cryptoengine.InitCryptoEngine(issuer)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	// decrypt the message
-	data, err := engine.Decrypt(encryptedMessage)
+	// // decrypt the message
+	// data, err := engine.Decrypt(encryptedMessage)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	dataBytes, err := hex.DecodeString(encryptedMessage)
 	if err != nil {
 		return nil, err
 	}
 
 	// new reader
-	reader := bytes.NewReader([]byte(data.Text))
+	reader := bytes.NewReader([]byte(dataBytes))
 
 	// otp object
 	otp := new(Totp)
